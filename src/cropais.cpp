@@ -32,7 +32,7 @@ vector<int> getObjPosition(const vector<string> &imgAnnotationsVec, int objNr){
 	return result;
 }
 
-void cropImage(string line, string annotation_file_name){
+void cropImage(string line, string annotation_file_name, int w, int h){
 
 	boost::filesystem::path p(annotation_file_name);
 	boost::filesystem::path dir = p.parent_path();
@@ -98,8 +98,42 @@ void cropImage(string line, string annotation_file_name){
 					roi.width=objPosition[2];
 					roi.height=objPosition[3];
 
+					float scale=1;
+					if(w>0&&h>0){
+						float scaleW=(float)w/roi.width;
+						float scaleH=(float)h/roi.height;
+						scale=(scaleW>scaleH?scaleW:scaleH);
+					}
+
+
 					if(roi.x>=0&&roi.y>=0&&roi.width>0&&roi.height>0&&(roi.x+roi.width)<=img.cols&&(roi.y+roi.height)<=img.rows ){
-						cv::Mat crop=img(roi);
+						cv::Mat crop1=img(roi);
+
+						cv::Mat crop2;
+						cv::Size size(roi.width*scale, roi.height*scale);
+
+						cv::resize(crop1, crop2, size, (double)scale, (double)scale);
+
+						int cropX=0;
+						int cropY=0;
+						//Crop to size
+						if(crop2.cols>w){
+							//Crop to width
+
+							cropX=(crop2.cols-w)/2;
+
+						}
+						if(crop2.rows>h){
+							//Crop to height
+							cropY=(crop2.rows-h)/2;
+						}
+
+						roi.x=cropX;
+						roi.y=cropY;
+						roi.width=w;
+						roi.height=h;
+
+						cv::Mat crop=crop2(roi);
 
 						stringstream croppedImgFileSS;
 
@@ -141,9 +175,13 @@ void cropImage(string line, string annotation_file_name){
 
 int main(int argc, char* argv[]) {
 
+	//argv[1] - annotations file
+	//argv[2] - width (new)
+	//argv[3] - height (new)
 	ifstream annotation_file;
 	string annotation_file_name;
 	string line;
+	int w=0, h=0;
 
 	if(argc>1 )
 		annotation_file_name=argv[1];
@@ -151,13 +189,22 @@ int main(int argc, char* argv[]) {
 		cout<<"Please provide annotation file name"<<endl;
 		cin>>annotation_file_name;
 	}
+
+	if(argc>2 ){
+		w=atoi(argv[2]);
+	}
+
+	if(argc>3 ){
+		h=atoi(argv[3]);
+	}
+
 	annotation_file.open(annotation_file_name, ios::in);
 
 	if (annotation_file.is_open())
 	{
 		while ( getline (annotation_file,line) )
 		{
-			cropImage(line, annotation_file_name);
+			cropImage(line, annotation_file_name, w, h);
 
 		}
 		annotation_file.close();
